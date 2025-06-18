@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
-from azure.search.documents.models import Vector
+from azure.search.documents.models import VectorizedQuery
 from azure.search.documents.indexes.models import (
     SearchIndex,
     SearchField,
@@ -11,7 +11,7 @@ from azure.search.documents.indexes.models import (
     SimpleField,
     SearchableField,
     VectorSearch,
-    HnswVectorSearchAlgorithmConfiguration,
+    VectorSearchAlgorithmConfiguration,
 )
 
 # Load environment variables from .env file
@@ -71,7 +71,7 @@ def create_vector_index_if_not_exists(index_name: str = AZURE_SEARCH_INDEX_NAME,
 
         vector_search = VectorSearch(
             algorithm_configurations=[
-                HnswVectorSearchAlgorithmConfiguration(
+                VectorSearchAlgorithmConfiguration(
                     name="default-hnsw",
                     kind="hnsw",
                     parameters={
@@ -153,10 +153,10 @@ def search_similar_documents(embedding: list[float], top_k: int = 5, index_name:
              current_search_client = SearchClient(endpoint=AZURE_SEARCH_ENDPOINT, index_name=index_name, credential=AzureKeyCredential(AZURE_SEARCH_KEY))
 
     try:
-        vector = Vector(value=embedding, k=top_k, fields="content_vector")
+        vector_query = VectorizedQuery(vector=embedding, k_nearest_neighbors=top_k, fields="content_vector")
         results = current_search_client.search(
             search_text=None,  # No keyword search text, pure vector search
-            vectors=[vector],
+            vector_queries=[vector_query],
             select=["id", "content", "source_document_id", "metadata"], # Specify fields to retrieve
             top=top_k
         )

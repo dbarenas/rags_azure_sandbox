@@ -1,6 +1,6 @@
 from botbuilder.core import ActivityHandler, TurnContext, MessageFactory
 from botbuilder.schema import ChannelAccount, Activity, ActivityTypes # Added Activity, ActivityTypes
-from .rag_pipeline import run_rag_pipeline
+from .workflow_orchestrator import execute_full_rag_cag_pipeline
 import html # To escape user messages if they are reflected in logs or certain types of responses
 
 class AzureRAGBot(ActivityHandler):
@@ -18,7 +18,7 @@ class AzureRAGBot(ActivityHandler):
 
         try:
             # Get the response from the RAG pipeline
-            response_text = run_rag_pipeline(user_query)
+            response_text = execute_full_rag_cag_pipeline(user_query)
 
             # Sanitize or format the response if needed.
             # For example, if responses might contain markdown and the channel supports it.

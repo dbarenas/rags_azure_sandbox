@@ -164,11 +164,12 @@ A brief overview of the key files and directories:
 
 -   `app/`: Contains the core application logic.
     -   `__init__.py`: Makes `app` a Python package.
-    -   `bot.py`: Defines the `AzureRAGBot` class (Bot Framework `ActivityHandler`).
+    -   `bot.py`: Defines the `AzureRAGBot` class (Bot Framework `ActivityHandler`), which uses `app/workflow_orchestrator.py` to process queries.
     -   `ingest.py`: Script for ingesting PDF documents into Azure Cognitive Search.
     -   `memory_cache.py`: Implements in-memory caching for query-response pairs.
     -   `openai_client.py`: Handles interactions with Azure OpenAI Service (embeddings, completions).
-    -   `rag_pipeline.py`: Orchestrates the RAG + Caching (CAG) pipeline.
+    -   `rag_pipeline.py`: Contains core components of the RAG pipeline, such as prompt construction, and the original combined RAG/CAG pipeline function. The main bot flow now uses `workflow_orchestrator.py`.
+    -   `workflow_orchestrator.py`: Defines and orchestrates the RAG/CAG workflows by composing underlying components.
     -   `ragas_logging.py`: Logs interactions in a RAGAS-compatible format.
     -   `search_client.py`: Manages interactions with Azure Cognitive Search (indexing, querying).
     -   `.cache/`: Directory (created automatically) to store `ragas_log.jsonl`.
@@ -177,6 +178,17 @@ A brief overview of the key files and directories:
 -   `.env.template`: A template for the `.env` file, listing required environment variables.
 -   `README.md`: This file – providing documentation for the project.
 
+
+## Workflow Orchestration (`app/workflow_orchestrator.py`)
+
+To provide a clearer and more modular way to manage the sequence of operations in the RAG and CAG processes, the project uses `app/workflow_orchestrator.py`. This module is responsible for defining the explicit order of execution.
+
+Key functions in this module include:
+-   `execute_full_rag_cag_pipeline(user_query: str)`: This is the main function used by the bot. It first attempts to retrieve a response from the cache (CAG). If not found, it executes the RAG process (generates an embedding, searches documents, constructs a prompt, and gets a completion from the LLM), then caches the new response and logs it.
+-   `run_cag_workflow(user_query: str, query_embedding: list[float])`: Specifically handles the cache check.
+-   `run_rag_core_workflow(user_query: str, query_embedding: list[float])`: Handles the RAG-specific steps after a cache miss.
+
+This modularity allows for easier understanding, testing, and modification of the different parts of the generation pipeline. You can see an example of how to use these functions directly by looking at the `if __name__ == "__main__":` block within `app/workflow_orchestrator.py`.
 
 ## RAGAS Logging
 

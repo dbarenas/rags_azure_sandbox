@@ -3,6 +3,14 @@ from .search_client import search_similar_documents
 from .memory_cache import search_cache, save_to_cache
 from .ragas_logging import log_ragas_entry
 
+def construct_prompt(user_query: str, retrieved_docs: list[str]) -> str:
+    """
+    Constructs the prompt string for the LLM using the user query and retrieved documents.
+    """
+    context_for_prompt = "\n".join(retrieved_docs)
+    prompt = f"Based on the following information, please answer the question.\n\nContext:\n{context_for_prompt}\n\nQuestion: {user_query}"
+    return prompt
+
 def run_rag_pipeline(user_query: str):
     """
     Runs the full RAG pipeline:
@@ -40,25 +48,12 @@ def run_rag_pipeline(user_query: str):
     # 3. Search for similar documents in Azure Cognitive Search
     retrieved_docs = search_similar_documents(query_embedding) # Pass embedding to search
 
-    # The search_similar_documents function now returns a list of strings,
-    # where each string is "Source: ..., Content: ..., Metadata: ..."
-    # We need to extract just the content for the prompt, but also keep context for RAGAS
-
-    # For the LLM prompt, we typically just want the textual content of the documents
-    context_for_prompt = "\n".join(retrieved_docs) # This now includes Source and Metadata in the context.
-                                                   # You might want to refine this to extract only 'Content' part for the LLM prompt.
-                                                   # For example:
-                                                   # context_for_llm = "\n".join([doc.split("Content: ", 1)[1].split(", Metadata:",1)[0] if "Content: " in doc else doc for doc in retrieved_docs])
-
     # For RAGAS logging, the `retrieved_docs` (which includes source/metadata) is good as "context"
     ragas_context = "\n---\n".join(retrieved_docs)
 
 
     # 4. Construct a prompt with the retrieved context and user query
-    # Using a refined context for LLM if you chose to extract only content:
-    # prompt = f"Answer the question based on the context below:\n{context_for_llm}\n\nQuestion: {user_query}"
-    # Using the direct output from search_similar_documents:
-    prompt = f"Based on the following information, please answer the question.\n\nContext:\n{context_for_prompt}\n\nQuestion: {user_query}"
+    prompt = construct_prompt(user_query, retrieved_docs)
 
 
     # 5. Get a completion (answer) from Azure OpenAI
