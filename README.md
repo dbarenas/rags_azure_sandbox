@@ -1,190 +1,130 @@
-# Azure RAG Bot with Caching and RAGAS Logging
+# Azure RAG Infrastructure and Credentials Setup
 
-This project implements a Retrieval-Augmented Generation (RAG) bot using Python and various Azure services. It features a caching mechanism (Cache-Augmented Generation - CAG) to improve response times and reduce costs, as well as logging capabilities compatible with the RAGAS framework for performance evaluation.
+This project provides Terraform scripts to provision Azure resources for a Retrieval Augmented Generation (RAG) application and a Python script to fetch the necessary credentials and generate a `.env` file.
 
-**Key Technologies:**
-- Python 3.8+
-- Azure OpenAI Service (for embeddings and text generation)
-- Azure Cognitive Search (for vector storage and retrieval)
-- Azure Bot Service (for bot interaction, though runnable locally with Bot Framework Emulator)
-- `aiohttp` for the bot's web server
-- `botbuilder-sdk` for Bot Framework integration
-- `scikit-learn` for cache similarity
-- `PyMuPDF` for PDF text extraction
+## Overview
 
+The Terraform scripts will create the following Azure resources:
+*   Azure Resource Group
+*   Azure Cognitive Search
+*   Azure Cognitive Services (for OpenAI)
+*   Azure Bot Channels Registration
+
+The Python script will then connect to your Azure subscription to retrieve API keys and endpoints for these services and store them in a `.env` file for easy use in your RAG application.
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed and configured:
+Before you begin, ensure you have the following:
 
-- **Python:** Version 3.8 or higher. You can download Python from [python.org](https://www.python.org/downloads/).
-- **Git:** For cloning the repository. You can download Git from [git-scm.com](https://git-scm.com/downloads/).
-- **Azure Account:** An active Azure subscription is required to provision and use Azure OpenAI, Azure Cognitive Search, and (optionally) Azure Bot Service.
-  - If you don't have one, you can create a [free Azure account](https://azure.microsoft.com/free/).
-- **Bot Framework Emulator (Recommended for local testing):** For testing the bot locally. Download it from the [Bot Framework Emulator releases page](https://github.com/Microsoft/BotFramework-Emulator/releases).
-
+1.  **Azure Account and Subscription**: You'll need an active Azure subscription. If you don't have one, create a [free Azure account](https://azure.microsoft.com/free/).
+2.  **Azure CLI**: Install the [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli) and log in to your account:
+    ```bash
+    az login
+    ```
+3.  **Terraform**: Install [Terraform](https://learn.hashicorp.com/tutorials/terraform/install-cli).
+4.  **Python**: Install [Python 3.x](https://www.python.org/downloads/).
+5.  **Microsoft App Registration**: You need to create a Microsoft App Registration for the Azure Bot.
+    *   Go to the [Azure portal](https://portal.azure.com/) and navigate to **Microsoft Entra ID**.
+    *   Select **App registrations** and click **+ New registration**.
+    *   Give it a name (e.g., `MyRAGBotApp`).
+    *   Supported account types: Choose what's appropriate, often "Accounts in this organizational directory only" or "Accounts in any organizational directory".
+    *   Redirect URI: You can leave this blank or set it to a placeholder like `http://localhost` (Web).
+    *   Click **Register**.
+    *   Once registered, note down the **Application (client) ID** – this will be your `bot_app_id`.
+    *   Go to **Certificates & secrets**, click **+ New client secret**. Add a description, choose an expiry, and click **Add**. Copy the **Value** of the secret immediately – this will be your `bot_app_secret`. It won't be visible again.
+    *   For more details, see [Register an app with the Microsoft identity platform](https://docs.microsoft.com/azure/active-directory/develop/quickstart-register-app).
 
 ## Setup Instructions
 
-Follow these steps to set up the project locally:
+### 1. Clone the Repository (Optional)
 
-1.  **Clone the Repository:**
+If you've received these files as part of a project, you might already have them. If it's a Git repository, clone it:
+```bash
+# git clone <repository-url>
+# cd <repository-directory>
+```
+Otherwise, ensure all project files (`main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars`, `generate_env.py`, `requirements.txt`) are in the same directory.
+
+### 2. Configure Terraform Variables
+
+Open the `terraform.tfvars` file and replace the placeholder values with your Bot's Application (client) ID and Client Secret obtained from the Microsoft App Registration step:
+
+```hcl
+bot_app_id     = "YOUR-ACTUAL-BOT-APP-ID"
+bot_app_secret = "YOUR-ACTUAL-BOT-APP-SECRET"
+```
+
+You can also customize other variables in `variables.tf` (like resource names and location) if needed, or by creating a `terraform.tfvars` file or overriding them at the command line.
+
+### 3. Provision Azure Infrastructure with Terraform
+
+Navigate to the directory containing the Terraform files in your terminal.
+
+*   **Initialize Terraform**: This downloads the necessary provider plugins.
     ```bash
-    git clone <repository_url> # Replace <repository_url> with the actual URL
-    cd <repository_directory_name> # Replace <repository_directory_name>
+    terraform init
     ```
-
-2.  **Create a Python Virtual Environment (Recommended):**
+*   **Apply Terraform Configuration**: This creates the Azure resources.
     ```bash
-    python -m venv .venv
+    terraform apply
     ```
-    Activate the virtual environment:
-    -   On Windows:
-        ```bash
-        .venv\Scripts\activate
-        ```
-    -   On macOS/Linux:
-        ```bash
-        source .venv/bin/activate
-        ```
+    Terraform will show you a plan of the resources to be created. Review it and type `yes` when prompted to proceed. This might take a few minutes.
 
-3.  **Install Dependencies:**
+### 4. Generate the `.env` File
+
+Once the Terraform deployment is complete, you can generate the `.env` file.
+
+*   **Set Azure Subscription ID**: The Python script needs your Azure Subscription ID. Set it as an environment variable. Replace `YOUR_SUBSCRIPTION_ID` with your actual Subscription ID.
+    *   For Linux/macOS:
+        ```bash
+        export AZURE_SUBSCRIPTION_ID="YOUR_SUBSCRIPTION_ID"
+        ```
+    *   For Windows (Command Prompt):
+        ```bash
+        set AZURE_SUBSCRIPTION_ID="YOUR_SUBSCRIPTION_ID"
+        ```
+    *   For Windows (PowerShell):
+        ```bash
+        $env:AZURE_SUBSCRIPTION_ID="YOUR_SUBSCRIPTION_ID"
+        ```
+    You can find your Subscription ID in the [Azure portal](https://portal.azure.com/#blade/Microsoft_Azure_Billing/SubscriptionsBlade).
+
+*   **Install Python Dependencies**: Install the required Python libraries using the `requirements.txt` file.
     ```bash
     pip install -r requirements.txt
     ```
 
-4.  **Set Up Environment Variables (`.env` file):**
-    Copy the template file `.env.template` to a new file named `.env` in the project root:
+*   **Run the Python Script**: Execute the `generate_env.py` script.
     ```bash
-    # On Windows (Command Prompt)
-    copy .env.template .env
-    # On Windows (PowerShell)
-    Copy-Item .env.template .env
-    # On macOS/Linux
-    cp .env.template .env
+    python generate_env.py
     ```
-    Now, open the `.env` file and fill in the required values. Here's where to find them:
+    This script will use your Azure CLI credentials (from `az login`) to fetch the outputs from your Terraform deployment (like endpoints and keys) and create a `.env` file in the current directory.
 
-    *   **Azure OpenAI Service:**
-        -   `AZURE_OPENAI_ENDPOINT`: Your Azure OpenAI service endpoint URL (e.g., `https://your-openai-resource.openai.azure.com/`).
-        -   `AZURE_OPENAI_KEY`: An API key for your Azure OpenAI service.
-        -   `AZURE_OPENAI_API_VERSION`: The API version your Azure OpenAI service uses (e.g., `2023-07-01-preview`). Check the Azure portal for the version compatible with your models.
-        -   `AZURE_OPENAI_EMBEDDING_MODEL`: The deployment name of your text embedding model (e.g., `text-embedding-ada-002`).
-        -   `AZURE_OPENAI_COMPLETION_MODEL`: The deployment name of your chat/completion model (e.g., `gpt-35-turbo` or `gpt-4`).
-        *Finding these values:*
-            1.  Navigate to your Azure OpenAI resource in the [Azure portal](https://portal.azure.com/).
-            2.  Under "Keys and Endpoint," you'll find the endpoint and keys.
-            3.  Model deployment names are found under "Model deployments" within your Azure OpenAI Studio.
+## `.env` File Contents
 
-    *   **Azure Cognitive Search Service:**
-        -   `AZURE_SEARCH_ENDPOINT`: Your Azure Cognitive Search service endpoint URL (e.g., `https://your-search-service.search.windows.net`).
-        -   `AZURE_SEARCH_KEY`: An admin or query key for your Azure Cognitive Search service. For ingestion (`ingest.py`), an admin key is typically required.
-        -   `AZURE_SEARCH_INDEX` (Optional): The name for your search index. Defaults to `rag-vector-index` if not set.
-        *Finding these values:*
-            1.  Navigate to your Azure Cognitive Search resource in the [Azure portal](https://portal.azure.com/).
-            2.  The endpoint is on the "Overview" page.
-            3.  Keys are found under "Keys."
+The generated `.env` file will look something like this:
 
-    *   **Azure Bot Service (Optional - for cloud deployment or specific emulator features):**
-        -   `MICROSOFT_APP_ID`: The Microsoft App ID for your bot registration.
-        -   `MICROSOFT_APP_PASSWORD`: The Microsoft App Password (client secret) for your bot registration.
-        *Finding these values:*
-            1.  If you register your bot with Azure Bot Service, these values are provided during the registration process or can be found in the bot's "Configuration" blade in the Azure portal.
-            2.  For local testing with the Bot Framework Emulator, these can often be left blank unless you are testing features that specifically require them. The `run_bot.py` script has defaults that allow running without these if they are not set.
+```env
+AZURE_OPENAI_ENDPOINT=https://<your-openai-name>.openai.azure.com/
+AZURE_OPENAI_KEY=<your-openai-key1>
+AZURE_SEARCH_ENDPOINT=https://<your-search-name>.search.windows.net
+AZURE_SEARCH_KEY=<your-search-primary-key>
+```
 
+It will also include any Bot-related environment variables if you choose to add them to the `generate_env.py` script in the future (e.g., `MICROSOFT_APP_ID`, `MICROSOFT_APP_PASSWORD` if needed by your bot application directly from the .env).
 
-## Ingesting Data
+## Using the `.env` File
 
-Before the RAG bot can answer questions effectively, you need to populate its knowledge base (Azure Cognitive Search index) with your documents. The project includes a script for ingesting PDF files.
+This `.env` file can now be used by your RAG application (e.g., built with FastAPI, LangChain, Semantic Kernel, etc.) to connect to the Azure services. Most application frameworks and libraries have native support or simple integrations for loading variables from a `.env` file (e.g., using the `python-dotenv` library in Python).
 
-1.  **Prepare your PDF documents:**
-    Ensure the PDF files you want to ingest are accessible from your local machine.
+## Cleaning Up
 
-2.  **Ensure Environment Variables are Set:**
-    The ingestion script (`app/ingest.py`) requires Azure OpenAI and Azure Cognitive Search credentials to be correctly set in your `.env` file (see "Set Up Environment Variables" above).
+To remove the resources created by Terraform, run:
+```bash
+terraform destroy
+```
+Review the plan and type `yes` when prompted. Remember to also delete the Microsoft App Registration in Azure AD if you no longer need it.
 
-3.  **Run the Ingestion Script:**
-    Open your terminal (with the virtual environment activated) and run the following command for each PDF you want to ingest:
-    ```bash
-    python -m app.ingest "path/to/your/document.pdf"
-    ```
-    Replace `"path/to/your/document.pdf"` with the actual path to your PDF file.
+---
 
-    *Optional arguments for the ingestion script:*
-    -   `--index <index_name>`: Specify a custom Azure Search index name. Defaults to the value of `AZURE_SEARCH_INDEX` in your `.env` file or `rag-vector-index`.
-    -   `--chunk_size <size>`: Set the size of text chunks (default: 1000 characters).
-    -   `--overlap <size>`: Set the overlap between text chunks (default: 100 characters).
-
-    Example with optional arguments:
-    ```bash
-    python -m app.ingest "my_report.pdf" --index "my-custom-index" --chunk_size 1500
-    ```
-
-    The script will:
-    -   Extract text from the PDF.
-    -   Split the text into manageable, overlapping chunks.
-    -   Generate vector embeddings for each chunk using Azure OpenAI.
-    -   Upload the chunks and their embeddings to your Azure Cognitive Search index.
-    -   It will also create the search index if it doesn't already exist, using the schema defined in `app/search_client.py`.
-
-
-## Running the Bot
-
-Once you have set up your environment variables and (optionally) ingested data, you can run the bot server:
-
-1.  **Ensure Environment Variables are Set:**
-    The bot (`run_bot.py`) requires Azure OpenAI credentials. If you plan to connect it via Azure Bot Service or use features requiring authentication in the Bot Framework Emulator, `MICROSOFT_APP_ID` and `MICROSOFT_APP_PASSWORD` should also be set in your `.env` file.
-
-2.  **Start the Bot Server:**
-    Open your terminal (with the virtual environment activated) and run:
-    ```bash
-    python run_bot.py
-    ```
-    You should see output indicating the server has started, typically:
-    ```
-    Bot server starting on http://localhost:3978
-    Messaging endpoint available at http://localhost:3978/api/messages
-    Health check available at http://localhost:3978/health
-    ```
-
-3.  **Connect to the Bot (Local Testing):**
-    You can use the [Bot Framework Emulator](https://github.com/Microsoft/BotFramework-Emulator/releases) for local testing:
-    -   Launch the Bot Framework Emulator.
-    -   Click "Open Bot."
-    -   For "Bot URL," enter the messaging endpoint: `http://localhost:3978/api/messages`.
-    -   If you have `MICROSOFT_APP_ID` and `MICROSOFT_APP_PASSWORD` set in your `.env` file and want to test with them, enter them in the Emulator's configuration. Otherwise, they can often be left blank for local connections to `localhost`.
-    -   Click "Connect."
-
-    You should now be able to send messages to your bot and receive responses. The bot will use the RAG pipeline to retrieve information from your Azure Cognitive Search index and generate answers with Azure OpenAI.
-
-
-## Project Structure
-
-A brief overview of the key files and directories:
-
--   `app/`: Contains the core application logic.
-    -   `__init__.py`: Makes `app` a Python package.
-    -   `bot.py`: Defines the `AzureRAGBot` class (Bot Framework `ActivityHandler`).
-    -   `ingest.py`: Script for ingesting PDF documents into Azure Cognitive Search.
-    -   `memory_cache.py`: Implements in-memory caching for query-response pairs.
-    -   `openai_client.py`: Handles interactions with Azure OpenAI Service (embeddings, completions).
-    -   `rag_pipeline.py`: Orchestrates the RAG + Caching (CAG) pipeline.
-    -   `ragas_logging.py`: Logs interactions in a RAGAS-compatible format.
-    -   `search_client.py`: Manages interactions with Azure Cognitive Search (indexing, querying).
-    -   `.cache/`: Directory (created automatically) to store `ragas_log.jsonl`.
--   `run_bot.py`: The main entry point to start the bot's web server using `aiohttp`.
--   `requirements.txt`: Lists all Python dependencies for the project.
--   `.env.template`: A template for the `.env` file, listing required environment variables.
--   `README.md`: This file – providing documentation for the project.
-
-
-## RAGAS Logging
-
-The application is configured to log interactions in a format compatible with the [RAGAS](https://github.com/explodinggradients/ragas) framework, which is designed for evaluating RAG pipelines.
-
--   **Log File Location:** Each time the RAG pipeline generates a new response (i.e., not a cache hit), an entry containing the `question`, retrieved `context`, and generated `answer` is logged to:
-    `app/.cache/ragas_log.jsonl`
-
--   **Usage:** This JSONL file can be used as a dataset for evaluation with RAGAS. You would typically use the RAGAS library to load this dataset and compute metrics like faithfulness, answer relevancy, context precision, and context recall.
-
-    Refer to the [RAGAS documentation](https://docs.ragas.io/en/latest/getstarted/evaluation.html) for more details on how to perform evaluations.
+This `README.md` provides a comprehensive guide for setting up the Azure infrastructure and generating the necessary credentials.
