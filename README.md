@@ -117,6 +117,72 @@ It will also include any Bot-related environment variables if you choose to add 
 
 This `.env` file can now be used by your RAG application (e.g., built with FastAPI, LangChain, Semantic Kernel, etc.) to connect to the Azure services. Most application frameworks and libraries have native support or simple integrations for loading variables from a `.env` file (e.g., using the `python-dotenv` library in Python).
 
+## Running with Docker (for `generate_env.py`)
+
+If you prefer to use Docker to run the `generate_env.py` script, a `Dockerfile` is provided. This is useful for ensuring a consistent environment for the script execution.
+
+**Prerequisites for Docker:**
+*   [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
+*   You still need to have logged in via Azure CLI (`az login`) on your host machine, as the Docker container will mount your local Azure configuration.
+*   Ensure your `AZURE_SUBSCRIPTION_ID` is set in your host environment or pass it directly to the `docker run` command.
+
+**Steps:**
+
+1.  **Build the Docker Image**:
+    Open your terminal in the project root directory (where the `Dockerfile` is located) and run:
+    ```bash
+    docker build -t azure-rag-env-generator .
+    ```
+
+2.  **Run the Docker Container**:
+    To run the script inside the Docker container, you'll need to:
+    *   Pass your `AZURE_SUBSCRIPTION_ID`.
+    *   Mount your local Azure CLI configuration directory so `DefaultAzureCredential` can pick up your login.
+    *   Mount a local directory to get the generated `.env` file.
+
+    **For Linux/macOS:**
+    ```bash
+    docker run --rm \
+      -e AZURE_SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}" \
+      -v ~/.azure:/root/.azure \
+      -v $(pwd):/app/output \
+      azure-rag-env-generator \
+      sh -c "cp .env output/.env"
+    ```
+    *Note: The `sh -c "cp .env output/.env"` part is to copy the generated .env file to the mounted output directory. The script itself creates `.env` in its working directory `/app` inside the container.*
+
+    **For Windows (PowerShell):**
+    ```powershell
+    docker run --rm `
+      -e AZURE_SUBSCRIPTION_ID="$env:AZURE_SUBSCRIPTION_ID" `
+      -v "$env:USERPROFILE\.azure:/root/.azure" `
+      -v "$(Get-Location):/app/output" `
+      azure-rag-env-generator `
+      sh -c "cp .env output/.env"
+    ```
+
+    **For Windows (Command Prompt - CMD):**
+    ```cmd
+    docker run --rm ^
+      -e AZURE_SUBSCRIPTION_ID="%AZURE_SUBSCRIPTION_ID%" ^
+      -v "%USERPROFILE%\.azure:/root/.azure" ^
+      -v "%CD%:/app/output" ^
+      azure-rag-env-generator ^
+      sh -c "cp .env output/.env"
+    ```
+
+    After the container runs, you should find the `.env` file in your current working directory on your host machine (e.g., `$(pwd)/.env` or `%CD%\.env`).
+
+    **Explanation of `docker run` options:**
+    *   `--rm`: Automatically removes the container when it exits.
+    *   `-e AZURE_SUBSCRIPTION_ID="..."`: Sets the Azure subscription ID environment variable inside the container.
+    *   `-v ~/.azure:/root/.azure` (or platform equivalent): Mounts your host's Azure configuration directory into the container at `/root/.azure`. `DefaultAzureCredential` will look here for Azure CLI credentials.
+    *   `-v $(pwd):/app/output` (or platform equivalent): Mounts the current directory on your host to `/app/output` inside the container. This is used to copy the `.env` file out.
+    *   `azure-rag-env-generator`: The name of the image you built.
+    *   `sh -c "cp .env output/.env"`: This command is run inside the container after `generate_env.py` (the default CMD) has finished. Since `generate_env.py` writes `.env` to `/app/.env` (its WORKDIR), this copies it to the mounted `/app/output` directory, making it accessible on your host.
+
+    If you encounter issues with file permissions when writing the `.env` file, you might need to adjust the `cp` command or how the script writes the file, potentially by making the output path configurable via an environment variable in `generate_env.py`.
+
 ## Cleaning Up
 
 To remove the resources created by Terraform, run:
@@ -127,4 +193,4 @@ Review the plan and type `yes` when prompted. Remember to also delete the Micros
 
 ---
 
-This `README.md` provides a comprehensive guide for setting up the Azure infrastructure and generating the necessary credentials.
+This `README.md` provides a comprehensive guide for setting up the Azure infrastructure and generating the necessary credentials, including options for Docker usage.
